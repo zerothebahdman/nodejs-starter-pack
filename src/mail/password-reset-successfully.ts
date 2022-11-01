@@ -1,0 +1,3 @@
+const PASSWORD_RESET_SUCCESSFUL = () => ``;
+
+export default PASSWORD_RESET_SUCCESSFUL;
