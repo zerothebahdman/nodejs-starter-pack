@@ -19,11 +19,11 @@ const envVarsSchema = Joi.object()
       .default('24h')
       .label('JWT Refresh Token Expires')
       .required(),
-    MAIL_FROM: Joi.string().required().label('Mail From').required(),
-    MAIL_USER: Joi.string().required().label('Mail User').required(),
-    MAIL_PASSWORD: Joi.string().required().label('Mail Password').required(),
-    MAIL_HOST: Joi.string().required().label('Mail Host').required(),
-    MAIL_PORT: Joi.number().required().label('Mail Port').required(),
+    MAIL_FROM: Joi.string().label('Mail From'),
+    MAIL_USER: Joi.string().label('Mail User'),
+    MAIL_PASSWORD: Joi.string().label('Mail Password'),
+    MAIL_HOST: Joi.string().label('Mail Host'),
+    MAIL_PORT: Joi.number().label('Mail Port'),
   })
   .unknown();
 const { value: envVars, error } = envVarsSchema

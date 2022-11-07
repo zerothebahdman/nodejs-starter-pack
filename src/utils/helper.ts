@@ -1,5 +1,3 @@
-import { nanoid } from 'nanoid';
-
 export default class HelperClass {
   static titleCase(string: string): string {
     let sentence = string.toLowerCase().split(' ');

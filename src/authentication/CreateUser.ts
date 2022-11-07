@@ -6,18 +6,12 @@ import EmailService from '../services/Email.service';
 import User from '../database/models/user.model';
 import AuthService from '../services/Auth.service';
 import httpStatus from 'http-status';
-import MembersService from '../services/Members.service';
 const emailService = new EmailService();
 
 export default class CreateUser {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly membersService: MembersService
-  ) {}
+  constructor(private readonly authService: AuthService) {}
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log(req.body);
-
       const _userNameExists = await User.findOne({
         username: req.body.username,
       });
@@ -43,9 +37,6 @@ export default class CreateUser {
 
       /** if user does not exist create the user using the user service */
       const { _user } = await this.authService.createUser(req.body);
-      if (_user.role === 'member') {
-        await this.membersService.createAccountForMember(_user.id);
-      }
 
       /** Send email verification to user */
       await emailService._sendUserLoginCredentials(

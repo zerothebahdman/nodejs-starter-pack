@@ -2,23 +2,17 @@ import { NextFunction, Request, Response } from 'express';
 import AppException from '../exceptions/AppException';
 import httpStatus from 'http-status';
 import AuthService from '../services/Auth.service';
-import MembersService from '../services/Members.service';
 
 export default class LoginUser {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly membersService: MembersService
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   async _loginUser(req: Request, res: Response, next: NextFunction) {
     try {
       const { accessToken, refreshToken, user } =
         await this.authService.loginUser(req.body, next);
-      const account = await this.membersService.getMemberAccount(user.id);
       return res.status(httpStatus.ACCEPTED).json({
         status: 'success',
         user,
-        account: account !== undefined ? account : null,
         accessToken,
         refreshToken,
       });

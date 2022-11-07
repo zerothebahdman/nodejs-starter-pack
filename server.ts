@@ -1,4 +1,4 @@
-import app from './src/interface/http/express/app';
+import app from './src/http/app';
 import config from './config/default';
 import log from './src/logging/logger';
 import connectDb from './src/database/connect';
