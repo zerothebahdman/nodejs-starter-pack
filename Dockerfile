@@ -1,26 +1,56 @@
-FROM node:16.14.0-alpine
-# Create app directory
-WORKDIR /usr/app
+##########
+## DEPS ##
+##########
+FROM node:19 AS deps
+# RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json yarn.lock ./
+RUN yarn --frozen-lockfile
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
-COPY package*.json ./
+####################
+## Native Binaries Deps ##
+####################
+FROM --platform=amd64 node:19 AS binaries-deps
+# RUN apk add --no-cache libc6-compat
+WORKDIR /app
+# Prisma client
+COPY --from=deps /app/node_modules ./node_modules
 
-RUN npm install
-# If you are building your code for production
-# RUN npm ci --only=production
+#############
+## BUILDER ##
+#############
+FROM node:19 AS builder
+WORKDIR /app
+COPY --from=binaries-deps /app/node_modules ./node_modules
+ENV NODE_ENV=development
 
 # Bundle app source
 COPY . .
+ENV DATABASE_URL postgresql://zero@localhost:5432/away-naija?schema=public
+RUN yarn generate
+RUN yarn build
+############
+## RUNNER ##
+############
+FROM --platform=amd64 node:19 AS runner
 
-RUN npm run build
-COPY .env ./build
-RUN npx prisma generate --schema=./src/database/prisma/schema.prisma
-COPY ./src/certs ./build/src/certs
-COPY ./src/database ./build/src/certs
-WORKDIR /build
-# RUN npx prisma generate --schema=./src/database/prisma/schema.prisma
+WORKDIR /app
+
+ENV NODE_ENV development
+
+RUN addgroup --system --gid 1001 nodejs
+
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/src/package.json ./src/package.json
+
+# WORKDIR /build
+# COPY .env ./build/
+# COPY ./src/certs ./build/certs
+# RUN yarn run generate
+# RUN yarn run migrate:dev
 
 EXPOSE 8080
-CMD node server.js
+
+ENV PORT 8080
+
+CMD [ "yarn", "start" ]
