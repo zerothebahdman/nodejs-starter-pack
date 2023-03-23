@@ -1,122 +1,83 @@
-import AppException from '../exceptions/AppException';
-import httpStatus from 'http-status';
-import EncryptionService from './Encryption.service';
-import TokenService from './Token.service';
-import { NextFunction } from 'express';
-import { UserInterface } from '../../index';
-import User from '../database/models/user.model';
-
-interface AuthRequest extends UserInterface {}
+import EncryptionService from './encryption.service';
+import TokenService from './token.service';
+import HelperClass from '../utils/helper';
+import { createHash } from 'node:crypto';
+import moment from 'moment';
+import UserService from './user.service';
+import EmailService from './email.service';
+import { JwtPayload } from 'jsonwebtoken';
+import { UserInterface } from '../utils/index';
 
 export default class AuthService {
   constructor(
     private readonly encryptionService: EncryptionService,
-    private readonly tokenService: TokenService
+    private readonly tokenService: TokenService,
+    private readonly userService: UserService,
+    private readonly emailService: EmailService
   ) {}
 
-  async createUser(createUser: UserInterface) {
-    const _hashedPassword = await this.encryptionService.hashPassword(
-      createUser.username
+  async createUser(
+    createBody: UserInterface
+  ): Promise<{ user: UserInterface; OTP_CODE: string }> {
+    createBody.password = await this.encryptionService.hashPassword(
+      createBody.password
     );
-    createUser.password = _hashedPassword;
+    const OTP_CODE = HelperClass.generateRandomChar(6, 'num');
+    const hashedToken = createHash('sha512')
+      .update(String(OTP_CODE))
+      .digest('hex');
 
-    const _user = await User.create(createUser);
+    createBody.emailVerificationToken = hashedToken;
+    createBody.emailVerificationTokenExpiry = moment()
+      .add('6', 'hours')
+      .utc()
+      .toDate();
 
-    return { _user };
+    const user: UserInterface = await this.userService.createUser(createBody);
+    return { user, OTP_CODE };
   }
 
-  async loginUser(
-    loginPayload: AuthRequest,
-    next: NextFunction
-  ): Promise<{
-    accessToken: string;
-    refreshToken: string;
-    user: UserInterface;
-  }> {
-    const _userExists = await User.findOne({
-      username: loginPayload.username,
-    }).select('+password');
-    if (
-      !_userExists ||
-      !(await this.encryptionService.comparePassword(
-        _userExists.password,
-        loginPayload.password
-      ))
-    )
-      next(
-        new AppException(
-          `Oops!, Incorrect username or password`,
-          httpStatus.UNAUTHORIZED
-        )
-      );
-
-    const accessToken = await this.tokenService._generateAccessToken(
-      _userExists.id,
-      _userExists.firstName
-    );
-    const refreshToken = await this.tokenService._generateRefreshToken(
-      _userExists.id,
-      _userExists.firstName
+  async loginUser(loginPayload: UserInterface) {
+    const token = await this.tokenService.generateToken(
+      loginPayload.id,
+      loginPayload.fullName
     );
 
-    return { accessToken, refreshToken, user: _userExists };
+    return token;
   }
 
-  async regenerateAccessToken(
-    refreshToken: string,
-    next: NextFunction
-  ): Promise<string> {
-    const decodeToken = await new TokenService().verifyToken(
-      refreshToken,
-      next
-    );
-    const { sub }: any = decodeToken;
-    const user = await User.findById({ _id: sub });
+  async regenerateAccessToken(refreshToken: string): Promise<string> {
+    const decodeToken = await new TokenService().verifyToken(refreshToken);
+    const { sub }: string | JwtPayload = decodeToken;
+    const user = await this.userService.getUserById(sub as string);
 
-    if (!user)
-      next(
-        new AppException('Oops!, user does not exist', httpStatus.NOT_FOUND)
-      );
+    if (!user) throw new Error(`Oops!, user with id ${sub} does not exist`);
 
-    return await this.tokenService._generateAccessToken(
+    const { accessToken } = await this.tokenService.generateToken(
       user.id,
-      user.firstName
+      user.email
     );
+
+    return accessToken;
   }
 
-  // async resendOtp({ req, next }: { req: AuthRequest; next: NextFunction }) {
-  //   const _user = await User.findOne({
-  //     email: req.email,
-  //     deletedAt: null,
-  //   });
-  //   if (!_user)
-  //     next(
-  //       new AppException('Oops!, user does not exist', httpStatus.NOT_FOUND)
-  //     );
+  async resendOtp(actor: UserInterface): Promise<void> {
+    const otp = HelperClass.generateRandomChar(6, 'num');
+    const hashedToken = await this.encryptionService.hashString(otp);
 
-  //   const OTP_CODE = HelperClass.generateRandomChar(6, 'num') as string;
-  //   if (_user.isEmailVerified === true) {
-  //     next(
-  //       new AppException(
-  //         'Oops!, email is already verified',
-  //         httpStatus.FORBIDDEN
-  //       )
-  //     );
-  //   } else {
-  //     const hashedToken = createHash('sha512')
-  //       .update(String(OTP_CODE))
-  //       .digest('hex');
+    const updateBody: Pick<
+      UserInterface,
+      'emailVerificationToken' | 'emailVerificationTokenExpiry'
+    > = {
+      emailVerificationToken: hashedToken,
+      emailVerificationTokenExpiry: moment().add('6', 'hours').utc().toDate(),
+    };
+    await this.userService.updateUserById(actor.id, updateBody);
 
-  //     _user.email_verification_token = hashedToken;
-  //     _user.email_verification_token_expires_at = moment().add('6', 'hours');
-  //     await _user.save();
-
-  //     await this.emailService._sendUserEmailVerificationEmail(
-  //       _user.firstName,
-  //       _user.email,
-  //       OTP_CODE
-  //     );
-  //   }
-  //   return OTP_CODE;
-  // }
+    await this.emailService._sendUserEmailVerificationEmail(
+      actor.fullName,
+      actor.email,
+      otp
+    );
+  }
 }

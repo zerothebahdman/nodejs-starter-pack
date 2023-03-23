@@ -3,44 +3,37 @@ import NodemailerModule from '../modules/NodemailerModule';
 import log from '../logging/logger';
 import PASSWORD_RESET_EMAIL from '../mail/password-reset';
 import WELCOME_EMAIL from '../mail/welcome-email';
-import PASSWORD_RESET_SUCCESSFUL from '../mail/password-reset-successfully';
-import INVITE_ADMIN from '../mail/invite-admin';
-import SEND_ADMIN_NEW_PASSWORD from '../mail/send-admin-new-password';
-import HelperClass from '../utils/helper';
-import SEND_USER_LOGIN_CREDENTIALS from '../mail/send_user_login_credentials';
+import EMAIL_VERIFICATION from '../mail/email-verification';
 const _nodeMailerModule = new NodemailerModule();
 
 const emailType: EmailType = {
-  WELCOME_EMAIL: ['Welcome to KOOPAY', 'welcome'],
+  WELCOME_EMAIL: [`Welcome to ${config.appName}`, 'welcome'],
   PASSWORD_RESET_INSTRUCTION: ['Password Reset Requested', 'password-reset'],
   PASSWORD_RESET_SUCCESSFUL: ['Password Reset', 'password-reset-successful'],
+  EMAIL_VERIFICATION: ['Email Verification Requested', 'email-verification'],
   PASSWORD_CHANGED: ['Password Changed', 'password-changed'],
-  SEND_USER_LOGIN_CREDENTIALS: [
-    'You have been invited to be a member of refiners cooperative',
-    'send_user_login_credentials',
+  PAYMENT_TRACKING: ['Payment Tracking', 'payment-tracking'],
+  USER_ACCOUNT_CREDITED: [
+    'Your renmiss wallet was credited',
+    'user-account-credited',
   ],
-  INVITE_ADMIN: [
-    'You have been invited to be an Admin on KOOPAY',
-    'invite-admin',
+  USER_ACCOUNT_DEBITED: [
+    'A charge occurred on your renmiss wallet',
+    'user-account-debited',
   ],
-  SEND_ADMIN_NEW_PASSWORD: [
-    'A new password has been generated for you',
-    'send-admin-new-password',
-  ],
+  PAYMENT_UNSUCCESSFUL: ['Payment Unsuccessful', 'payment-unsuccessful'],
+  SCHEDULE_ENDED: ['Schedule payment period ended', 'schedule-ended'],
 };
 
 type Data = {
-  name?: string;
-  url?: string;
-  password?: string;
-  username?: string;
+  [T: string]: string;
 };
 
 type EmailOptions = {
   from: string;
   to: string;
-  html?: any;
-  name?: string;
+  html?: string;
+  fullName?: string;
   subject?: string;
 };
 
@@ -48,6 +41,11 @@ type EmailType = {
   [k: string]: string[];
 };
 export default class EmailService {
+  /** Send email takes the following parameters:
+   * type - refers to the type of the email eg WelcomeEmail
+   * to - refers to who you are sending the email to
+   * data - refers to what you want to send to the user
+   */
   async _sendMail(type: string, email: string, data: Data) {
     const mailOptions: EmailOptions = {
       from: config.from,
@@ -57,101 +55,89 @@ export default class EmailService {
     if (!subject || !templatePath) return;
     switch (templatePath) {
       case 'welcome':
-        mailOptions.html = WELCOME_EMAIL(data.name, data.url);
-        mailOptions.subject = `${subject} ${data.name}`;
+        mailOptions.html = WELCOME_EMAIL(data.fullName, data.url);
+        mailOptions.subject = `${subject} ${data.fullName}`;
         break;
       case 'password-reset':
-        mailOptions.html = PASSWORD_RESET_EMAIL(data.url);
+        mailOptions.html = PASSWORD_RESET_EMAIL(data.fullName, data.token);
         mailOptions.subject = `[URGENT] - ${subject}`;
         break;
-      case 'reset-password-successful':
-        mailOptions.html = PASSWORD_RESET_SUCCESSFUL();
-        mailOptions.subject = subject;
+      case 'email-verification':
+        mailOptions.html = EMAIL_VERIFICATION(data.fullName, data.token);
+        mailOptions.subject = `[${config.appName}] ${subject}`;
         break;
-      case 'send_user_login_credentials':
-        mailOptions.html = SEND_USER_LOGIN_CREDENTIALS(
-          data.name,
-          data.username
-        );
-        mailOptions.subject = `${subject}`;
-        break;
-      case 'invite-admin':
-        mailOptions.html = INVITE_ADMIN(data.name, data.password, data.url);
-        mailOptions.subject = `[${data.name}] ${subject}`;
-      case 'send-admin-new-password':
-        mailOptions.html = SEND_ADMIN_NEW_PASSWORD(
-          data.name,
-          data.password,
-          data.url
-        );
-        mailOptions.subject = `[Notice ${data.name}] ${subject}`;
     }
-    try {
-      await _nodeMailerModule.send(mailOptions);
-      log.info(`Email on it's way to ${email}`);
-    } catch (err) {
-      throw err;
-    }
+
+    await _nodeMailerModule.send(mailOptions);
+    log.info(`Email on it's way to ${email}`);
   }
 
-  async _sendWelcomeEmail(name: string, email: string) {
+  async _sendWelcomeEmail(fullName: string, email: string) {
     const url = `${config.FRONTEND_APP_URL}/sign-in`;
-    return await this._sendMail('WELCOME_EMAIL', email, { name, url });
+    return await this._sendMail('WELCOME_EMAIL', email, { fullName, url });
   }
 
-  async _sendUserLoginCredentials(
-    name: string,
-    _user_email: string,
-    username: string
-  ) {
-    return await this._sendMail('SEND_USER_LOGIN_CREDENTIALS', _user_email, {
-      name,
-      username,
-    });
-  }
-
-  async _sendAdminEmailVerificationEmail(
-    name: string,
+  async _sendUserEmailVerificationEmail(
+    fullName: string,
     email: string,
     token: string
   ) {
-    const url = `${config.FRONTEND_APP_URL}/admin/verify-email?token=${token}`;
     return await this._sendMail('EMAIL_VERIFICATION', email, {
-      name,
-      url,
+      fullName,
+      token,
     });
   }
 
   async _sendUserPasswordResetInstructionEmail(
-    name: string,
+    fullName: string,
     email: string,
     token: string
   ) {
-    const url = `${config.FRONTEND_APP_URL}/new-password?token=${token}`;
     return await this._sendMail('PASSWORD_RESET_INSTRUCTION', email, {
-      name,
-      url,
-    });
-  }
-  async _sendAdminPasswordResetInstructionEmail(
-    name: string,
-    email: string,
-    password: string
-  ) {
-    const url = `${config.FRONTEND_APP_URL}/login`;
-    return await this._sendMail('SEND_ADMIN_NEW_PASSWORD', email, {
-      name: HelperClass.titleCase(name),
-      url,
-      password,
+      fullName,
+      token,
     });
   }
 
-  async inviteAdmin(to: string, password: string, name: string, token: string) {
-    const url = `${config.FRONTEND_APP_URL}/admin/verify-email?token=${token}`;
-    return await this._sendMail('INVITE_ADMIN', to, {
-      name: HelperClass.titleCase(name),
-      password,
-      url,
+  async sendPaymentTrackingEmail(message: string) {
+    return await this._sendMail('PAYMENT_TRACKING', 'info.ezecodes@gmail.com', {
+      message,
+    });
+  }
+
+  async sendUserAccountCreditedEmail(
+    to: string,
+    fullName: string,
+    message: string
+  ) {
+    return await this._sendMail('USER_ACCOUNT_CREDITED', to, {
+      fullName,
+      message,
+    });
+  }
+
+  async debitUserAccountEmail(to: string, fullName: string, message: string) {
+    return await this._sendMail('USER_ACCOUNT_DEBITED', to, {
+      fullName,
+      message,
+    });
+  }
+
+  async paymentUnsuccessfulEmail(
+    to: string,
+    fullName: string,
+    message: string
+  ) {
+    return await this._sendMail('PAYMENT_UNSUCCESSFUL', to, {
+      fullName,
+      message,
+    });
+  }
+
+  async scheduleEndedEmail(to: string, fullName: string, message: string) {
+    return await this._sendMail('SCHEDULE_ENDED', to, {
+      fullName,
+      message,
     });
   }
 }

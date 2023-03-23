@@ -7,5 +7,5 @@ const port: number = Number(config.port);
 connectDb();
 
 app.listen(port, () => {
-  log.info(`App is running on port ${port}`);
+  log.info(`${config.appName} is running on port ${port}`);
 });

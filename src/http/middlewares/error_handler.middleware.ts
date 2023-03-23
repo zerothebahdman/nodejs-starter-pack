@@ -55,7 +55,10 @@ export const ErrorHandler: ErrorRequestHandler = (
 
   if (process.env.NODE_ENV === 'development') {
     setDevError(err, res);
-  } else if (process.env.NODE_ENV === 'production') {
+  } else if (
+    process.env.NODE_ENV === 'production' ||
+    process.env.NODE_ENV === 'production'
+  ) {
     setProductionError(err, res);
   }
   next();

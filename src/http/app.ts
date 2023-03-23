@@ -16,7 +16,7 @@ import AppException from '../exceptions/AppException';
 
 const app: Application = express();
 
-if (config.env === 'production') {
+if (config.env === 'production' || config.env === 'staging') {
   app.use(enforce.HTTPS({ trustProtoHeader: true }));
 }
 

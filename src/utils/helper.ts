@@ -18,16 +18,7 @@ export default class HelperClass {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
   }
 
-  /**
-   * Generate random characters with specified length
-   * @param {Int16Array} length
-   * @param {string} type e.g "num" - Numbers only, "alpha" - letters only (upper & lower), "upper" - Uppercase letters only, "lower" - Lowercase letters only, "upper-num" - A mix of uppercase letters & number, "lower-num" - A mix of lowecase letters and numbers, "alpha-num" - A mix of letters and numbers
-   * @returns {string} e.g 'som3RandomStr1ng';
-   */
-  static generateRandomChar({
-    length = 32,
-    type = 'alpha-num',
-  }: { length?: number; type?: string } = {}): string {
+  static generateRandomChar(length = 32, type = 'alpha-num'): string {
     // "num", "upper", "lower", "upper-num", "lower-num", "alpha-num"
     let result = '';
     let characters =
@@ -48,5 +39,27 @@ export default class HelperClass {
       result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
+  }
+
+  static userNameValidator(string: string) {
+    /**
+     * Ensure it only starts with alphabets, can have numbers and can only contain '-', '_' special characters.
+     */
+    const strongRegex = new RegExp(/^[ A-Za-z0-9_-]*$/);
+    if (!strongRegex.test(string)) {
+      throw new Error(
+        'Invalid character in username. Only hiphen (-) and underscore (_) are allowed'
+      );
+    }
+  }
+  static removeUnwantedProperties(object: unknown, properties: string[]) {
+    let newObject: { [key: string]: string } = {};
+    if (typeof object === 'object' && object !== null) {
+      newObject = { ...object };
+      properties.forEach((property) => {
+        delete newObject[property];
+      });
+    }
+    return newObject;
   }
 }

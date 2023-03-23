@@ -1,51 +1,66 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextFunction, Request, Response } from 'express';
-import { createHash } from 'node:crypto';
-import { OtpExpired, TokenMustStillBeValid } from './rules/rules.module';
+import { TokenMustStillBeValid } from './rules/rules.module';
 import AppException from '../exceptions/AppException';
-import EmailService from '../services/Email.service';
 import moment from 'moment';
-import User from '../database/models/user.model';
-import HelperClass from '../utils/helper';
+import UserService from '../services/user.service';
+import httpStatus from 'http-status';
+import EncryptionService from '../services/encryption.service';
+import { UserInterface } from '../utils/index';
 
 export default class VerifyUserEmail {
-  constructor(private readonly emailService: EmailService) {}
-
+  constructor(
+    private readonly userService: UserService,
+    private readonly encryptionService: EncryptionService
+  ) {}
   async execute(req: Request, res: Response, next: NextFunction) {
     try {
-      const _hashedEmailToken: string = createHash('sha512')
-        .update(req.body.otp)
-        .digest('hex');
+      /**
+       * Check if the hashed token sent to the user has not being tampered with
+       * Check if the token is the same with the one stores in the database
+       * check if the email has not being verified
+       * check if the token has expired
+       * set emailVerificationToken and emailVerificationTokenExpiry field to null
+       */
 
-      const _user = await User.findOne({
-        $and: [
-          {
-            isEmailVerified: false,
-            email_verification_token: _hashedEmailToken,
-          },
-        ],
-      });
-
-      if (!_user) return TokenMustStillBeValid(next);
-      if ((_user.email_verification_token_expires_at < moment()) as boolean)
-        return OtpExpired(next);
-
-      _user.isEmailVerified = true;
-      _user.email_verification_token = null;
-      _user.email_verification_token_expires_at = null;
-      _user.email_verified_at = moment().format();
-      _user.save();
-
-      await this.emailService._sendWelcomeEmail(
-        HelperClass.titleCase(_user.firstName),
-        _user.email
+      const _hashedEmailToken: string = await this.encryptionService.hashString(
+        req.body.otp
       );
 
-      return res.status(201).json({
+      const user: UserInterface = await this.userService.getUserDetail({
+        isEmailVerified: false,
+        emailVerificationToken: _hashedEmailToken,
+      });
+
+      if (!user) return TokenMustStillBeValid(next);
+      if (
+        user.emailVerificationTokenExpiry <
+        moment().utc().startOf('day').toDate()
+      )
+        throw new Error(`Oops!, your token has expired`);
+
+      const data: Pick<
+        UserInterface,
+        | 'emailVerifiedAt'
+        | 'isEmailVerified'
+        | 'emailVerificationToken'
+        | 'emailVerificationTokenExpiry'
+      > = {
+        isEmailVerified: true,
+        emailVerifiedAt: moment().utc().toDate(),
+        emailVerificationToken: null,
+        emailVerificationTokenExpiry: null,
+      };
+      await this.userService.updateUserById(user.id, data);
+
+      return res.status(httpStatus.OK).json({
         status: `success`,
-        message: `Your email: ${_user.email} has been verified`,
+        message: `Your email: ${user.email} has been verified`,
       });
     } catch (err: any) {
-      return next(new AppException(err.status, err.message));
+      return next(
+        new AppException(err.message, err.status || httpStatus.BAD_REQUEST)
+      );
     }
   }
 }

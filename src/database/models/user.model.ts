@@ -1,76 +1,95 @@
+/* eslint-disable no-param-reassign */
 import { Schema, model } from 'mongoose';
-import { UserInterface } from '../../../index';
-import { ROLES } from '../../utils/constants';
+import paginate, { Pagination } from '../plugins/paginate.plugin';
+import toJSON from '../plugins/toJson.plugin';
+import { GENDER } from '../../../config/constants';
+import auditableFields from '../plugins/auditableFields.plugin';
+import { UserInterface } from '../../utils/index';
 
-const UserSchema = new Schema<UserInterface>(
+const userSchema = new Schema<UserInterface>(
   {
-    title: String,
-    firstName: {
+    fullName: {
       type: String,
-      required: [true, 'Oops! you need to specify a name'],
-      lowercase: true,
+      required: false,
+      trim: true,
     },
-    lastName: {
+    email: {
       type: String,
-      required: [true, 'Oops! you need to specify a name'],
-      lowercase: true,
-    },
-    username: String,
-    email: { type: String, required: true, unique: true, lowercase: true },
-    phoneNumber: {
-      type: String,
-      required: [true, 'Oops! you need to specify a phoneNumber'],
+      required: true,
       unique: true,
+      trim: true,
+      lowercase: true,
     },
     password: {
       type: String,
-      required: true,
-      minlength: [
-        8,
-        `Oops! your password needs to be at least 8 characters long`,
-      ],
-      select: false,
+      required: false,
+      trim: true,
     },
-    gender: { type: String, enum: ['male', 'female'], required: true },
-    loanApplicationStatus: String,
-    address: String,
-    role: {
-      type: String,
-      enum: Object.values(ROLES),
-      default: ROLES.USER,
-    },
-    nextOfKin: String,
-    nextOfKinAddress: String,
-    bank: String,
-    accountNumber: String,
-    occupation: String,
-    password_updated_at: Date,
-    password_reset_token: String,
-    password_reset_token_expires_at: Date,
-    active: {
+    residentialAddress: String,
+    isEmailVerified: {
       type: Boolean,
-      default: true,
-      select: false,
+      default: false,
     },
+    emailVerifiedAt: Date,
+    emailVerificationToken: String,
+    emailVerificationTokenExpiry: Date,
+    passwordResetToken: String,
+    passwordResetTokenExpiresAt: Date,
+    pushNotificationId: String,
+    userAppVersion: String,
+    gender: {
+      type: String,
+      enum: Object.values(GENDER),
+    },
+    otpLogin: {
+      type: String,
+      required: false,
+    },
+    phoneNumber: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    profilePicture: {
+      type: String,
+      required: false,
+    },
+    dob: {
+      type: Date,
+      required: false,
+    },
+    referralCode: String,
+    inviteCode: String,
+    deviceInfo: [Map],
+    ...auditableFields,
   },
   {
+    timestamps: true,
     toJSON: {
       virtuals: true,
       transform: function (_doc, ret) {
         delete ret._id;
-        delete ret.active;
-        delete ret.password_reset_token;
-        delete ret.password_reset_token_expires_at;
+        delete ret.passwordResetToken;
+        delete ret.passwordResetTokenExpiresAt;
         delete ret.__v;
         delete ret.password;
-        delete ret.password_reset;
+        delete ret.emailVerificationTokenExpiry;
         return ret;
       },
     },
-    timestamps: true,
-    toObject: { virtuals: true },
   }
 );
 
-const User = model<UserInterface>('User', UserSchema);
+// add plugin that converts mongoose to json
+userSchema.plugin(toJSON);
+userSchema.plugin(paginate);
+
+/**
+ * @typedef User
+ */
+const User: Pagination<UserInterface> = model<
+  UserInterface,
+  Pagination<UserInterface>
+>('User', userSchema);
+
 export default User;
