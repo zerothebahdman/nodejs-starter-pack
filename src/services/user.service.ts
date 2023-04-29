@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import User from '../database/models/user.model';
 import mongoose from 'mongoose';
-import { UserInterface } from '../utils/index';
 
 export default class UserService {
-  async createUser(userBody: Partial<UserInterface>): Promise<UserInterface> {
+  async createUser(userBody: Partial<User>): Promise<User> {
     const user = await User.create(userBody);
     return user;
   }
-  async getAllUserInterfaces(
-    filter: Partial<UserInterface>,
+  async getAllUsers(
+    filter: Partial<User>,
     options: {
       orderBy?: string;
       page?: string;
@@ -28,11 +27,11 @@ export default class UserService {
     id: string,
     eagerLoad = true,
     load?: string
-  ): Promise<mongoose.Document & UserInterface> {
+  ): Promise<mongoose.Document & User> {
     const data = eagerLoad
       ? await User.findById(id).populate(load)
       : User.findById(id);
-    if (!data) new Error(`UserInterface with id: ${id} does not exist`);
+    if (!data) new Error(`User with id: ${id} does not exist`);
     return data;
   }
 
@@ -40,18 +39,15 @@ export default class UserService {
     rssn: string,
     eagerLoad = true,
     load?: string
-  ): Promise<mongoose.Document & UserInterface> {
+  ): Promise<mongoose.Document & User> {
     const data = eagerLoad
       ? await User.findOne({ rssn }).populate(load)
       : User.findOne({ rssn });
-    if (!data) new Error(`UserInterface with id: ${rssn} does not exist`);
+    if (!data) new Error(`User with id: ${rssn} does not exist`);
     return data;
   }
 
-  async updateUserById(
-    id: string,
-    updateBody: Partial<UserInterface>
-  ): Promise<UserInterface> {
+  async updateUserById(id: string, updateBody: Partial<User>): Promise<User> {
     const user = await this.getUserById(id);
     if (!user) {
       throw new Error(`Oops!, user does not exist`);
@@ -61,32 +57,32 @@ export default class UserService {
     return user;
   }
 
-  async deleteUserById(id: string): Promise<UserInterface> {
+  async deleteUserById(id: string): Promise<User> {
     const data = await User.findByIdAndDelete(id);
     return data;
   }
 
-  async getUserByEmail(email: string): Promise<UserInterface> {
+  async getUserByEmail(email: string): Promise<User> {
     const data = await User.findOne({ email });
     return data;
   }
 
-  async getUserByPhoneNumber(phoneNumber: string): Promise<UserInterface> {
+  async getUserByPhoneNumber(phoneNumber: string): Promise<User> {
     const data = await User.findOne({ phoneNumber });
     return data;
   }
 
-  async getUserByReferralCode(referralCode: string): Promise<UserInterface> {
+  async getUserByReferralCode(referralCode: string): Promise<User> {
     const data = await User.findOne({ referralCode });
     return data;
   }
 
-  async getUserDetail(filter: Partial<UserInterface>) {
+  async getUserDetail(filter: Partial<User>) {
     const data = await User.findOne(filter);
     return data;
   }
 
-  async searchUsers(searchQuery: string): Promise<UserInterface[]> {
+  async searchUsers(searchQuery: string): Promise<User[]> {
     const data = await User.find({
       $or: [{ fullName: { $regex: searchQuery, $options: 'i' } }],
     });
@@ -94,7 +90,7 @@ export default class UserService {
     return data;
   }
 
-  async saveUserDeviceInfo(data: typeof Map, actor: UserInterface) {
+  async saveUserDeviceInfo(data: typeof Map, actor: User) {
     const user = await User.findByIdAndUpdate(
       actor.id,
       {

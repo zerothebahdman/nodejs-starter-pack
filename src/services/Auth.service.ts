@@ -6,7 +6,7 @@ import moment from 'moment';
 import UserService from './user.service';
 import EmailService from './email.service';
 import { JwtPayload } from 'jsonwebtoken';
-import { UserInterface } from '../utils/index';
+import { User } from '../utils/index';
 
 export default class AuthService {
   constructor(
@@ -17,8 +17,8 @@ export default class AuthService {
   ) {}
 
   async createUser(
-    createBody: UserInterface
-  ): Promise<{ user: UserInterface; OTP_CODE: string }> {
+    createBody: User
+  ): Promise<{ user: User; OTP_CODE: string }> {
     createBody.password = await this.encryptionService.hashPassword(
       createBody.password
     );
@@ -33,14 +33,14 @@ export default class AuthService {
       .utc()
       .toDate();
 
-    const user: UserInterface = await this.userService.createUser(createBody);
+    const user: User = await this.userService.createUser(createBody);
     return { user, OTP_CODE };
   }
 
-  async loginUser(loginPayload: UserInterface) {
+  async loginUser(loginPayload: User) {
     const token = await this.tokenService.generateToken(
       loginPayload.id,
-      loginPayload.fullName
+      `${loginPayload.firstName} ${loginPayload.lastName}`
     );
 
     return token;
@@ -61,12 +61,12 @@ export default class AuthService {
     return accessToken;
   }
 
-  async resendOtp(actor: UserInterface): Promise<void> {
+  async resendOtp(actor: User): Promise<void> {
     const otp = HelperClass.generateRandomChar(6, 'num');
     const hashedToken = await this.encryptionService.hashString(otp);
 
     const updateBody: Pick<
-      UserInterface,
+      User,
       'emailVerificationToken' | 'emailVerificationTokenExpiry'
     > = {
       emailVerificationToken: hashedToken,
@@ -75,7 +75,7 @@ export default class AuthService {
     await this.userService.updateUserById(actor.id, updateBody);
 
     await this.emailService._sendUserEmailVerificationEmail(
-      actor.fullName,
+      `${actor.firstName} ${actor.lastName}`,
       actor.email,
       otp
     );

@@ -1,5 +1,6 @@
 import { NextFunction } from 'express';
-import AppException from '../../exceptions/AppException';
+import httpStatus from 'http-status';
+import AppException from '../../../exceptions/AppException';
 
 type Account = { email: string };
 const AccountEmailShouldNotHaveBeenVerified = (
@@ -9,7 +10,7 @@ const AccountEmailShouldNotHaveBeenVerified = (
   return next(
     new AppException(
       `Account email: ${account.email} has already been verified`,
-      417
+      httpStatus.EXPECTATION_FAILED
     )
   );
 };

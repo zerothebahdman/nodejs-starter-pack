@@ -1,4 +1,4 @@
-import { GENDER } from '../../config/constants';
+import { GENDER, USER_STATUS } from '../../config/constants';
 export interface PaginationOptions {
   populate?: string;
   select?: string;
@@ -15,10 +15,12 @@ export interface PaginationModel<T> {
   data: T[];
 }
 
-export interface UserInterface {
+export interface User {
   id: string;
-  _id: string | string[] | UserInterface[];
-  fullName: string;
+  _id: string;
+  firstName: string;
+  lastName: string;
+  middleName: string;
   email: string;
   password: string;
   residentialAddress: string;
@@ -41,4 +43,5 @@ export interface UserInterface {
   deviceInfo: typeof Map;
   referralCode: string;
   inviteCode: string;
+  status: USER_STATUS;
 }

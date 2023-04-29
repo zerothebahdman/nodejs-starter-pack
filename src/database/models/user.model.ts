@@ -2,13 +2,23 @@
 import { Schema, model } from 'mongoose';
 import paginate, { Pagination } from '../plugins/paginate.plugin';
 import toJSON from '../plugins/toJson.plugin';
-import { GENDER } from '../../../config/constants';
+import { GENDER, USER_STATUS } from '../../../config/constants';
 import auditableFields from '../plugins/auditableFields.plugin';
-import { UserInterface } from '../../utils/index';
+import { User } from '../../utils/index';
 
-const userSchema = new Schema<UserInterface>(
+const userSchema = new Schema<User>(
   {
-    fullName: {
+    firstName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    middleName: {
       type: String,
       required: false,
       trim: true,
@@ -61,6 +71,11 @@ const userSchema = new Schema<UserInterface>(
     referralCode: String,
     inviteCode: String,
     deviceInfo: [Map],
+    status: {
+      type: String,
+      enum: Object.values(USER_STATUS),
+      default: USER_STATUS.PENDING,
+    },
     ...auditableFields,
   },
   {
@@ -87,9 +102,9 @@ userSchema.plugin(paginate);
 /**
  * @typedef User
  */
-const User: Pagination<UserInterface> = model<
-  UserInterface,
-  Pagination<UserInterface>
->('User', userSchema);
+const User: Pagination<User> = model<User, Pagination<User>>(
+  'User',
+  userSchema
+);
 
 export default User;
